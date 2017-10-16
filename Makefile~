@@ -1,0 +1,2 @@
+mud: main.cpp hashtable.cpp
+	gcc -o mud main.cpp hashtable.cpp -I.
