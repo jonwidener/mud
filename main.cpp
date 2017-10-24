@@ -1,5 +1,6 @@
 #include "hashtable.h"
 #include "commands.h"
+#include "mud_data.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -36,15 +37,12 @@ void *get_in_addr(struct sockaddr *sa) {
   return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-void client_handler(int fd);
-void command_parser(char* command);
-void (*translate_command(char* command, int*))(int, ...);
+ssize_t send_message(char*);
+void client_handler(int);
+void command_parser(char*);
+struct mud_command* translate_command(char*);
 
-struct mud_data {
-  char name[20];
-  int id;  
-  struct nlist* commands[HASHSIZE];
-};
+struct client_data cdata;
 
 static void *g_mud_data;
 
@@ -163,6 +161,8 @@ void client_handler(int fd) {
   char command[MAXDATASIZE] = "";
   char msg[MAXDATASIZE];
   
+  cdata.fd = fd;
+  
   memset(g_commands, 0, sizeof g_commands);
   install_commands(g_commands);
 
@@ -171,59 +171,90 @@ void client_handler(int fd) {
   
   sprintf(msg, "Hello, are you %s? Enter your name! ", md->name);
   
-  if (send(fd, msg, strlen(msg), 0) == -1) {
+  if (send_message(msg) == -1) {
     perror("send");
   }
   
-  while ((numbytes = recv(fd, buf, MAXDATASIZE-1, 0)) != 0) {
+  while ((numbytes = recv(fd, buf, MAXDATASIZE-1, 0)) != 0) {  
     if (numbytes == -1) {
       perror("recv");
       exit(1);
     }
   
-    printf("listener: packet is %d bytes long\n", numbytes);
     buf[numbytes] = '\0';
-    printf("listener: packet contains \"%s\"\n", buf);
-    
     if (buf[numbytes-1] == '\n' || buf[numbytes-1] == '\r' || (numbytes > 1 && buf[numbytes-1] == '\n' && buf[numbytes-2] == '\r')) {
-      printf("User entered: %s\n", command);      
+      char *src, *dst;
+      dst = command;
+      for (src = dst = command; *src != '\0'; src++) {
+        *dst = *src;
+        if (*dst >= 32 && *dst != 127) {
+          dst++;
+        }
+        if (*src == '\b' && (unsigned long)dst > (unsigned long)command) {
+          dst--;
+        }
+      }
+      *dst = '\0';
       command_parser(command);
-      strcpy(md->name, command);      
       memset(command, 0, sizeof command);      
     } else {
       sprintf(command, "%s%s", command, buf);
-      printf("command: %s\n", command);    
     }
   }
   
   printf("listener: client disconnected\n");
 }
 
-void test(int argc, ...) {
-  printf("This is a test\n");
-}
-
 void command_parser(char* command) {
-  void (*func)(int, ...);
-  int argc;
+  struct mud_command* mc = NULL;        
+  int arg_count = 0;
   char* token = strtok(command, " ");
   printf("Command tokens:\n");
   while (token != NULL) {
-    printf("%s\n", token);
-    func = translate_command(token, &argc);    
-    if (func != NULL) {
-      func(argc);
+    if (mc == NULL) {
+      mc = translate_command(token);
+      if (mc == NULL) {    
+        printf("token %s is not a command\n", token);
+        char *msg = (char*)"I did not understand that command";
+        send_message(msg);
+      } else if (mc->argc == -1) {      
+        char* temp = command;
+        for (int i = 0; i < strlen(token) + 1; i++) {
+          *temp++;
+        }
+        mc->argv[0] = temp;
+      }
+    } else {
+      if (arg_count < mc->argc) {
+        mc->argv[arg_count] = token;
+        arg_count++;
+      }    
+    }            
+    
+    if (mc != NULL && arg_count >= mc->argc) {
+      mc->func(mc->argc, mc->argv);
+      if (mc->argc == -1) {
+        break;
+      }
+      mc = NULL;
+      arg_count = 0;
     }
     token = strtok(NULL, " ");    
   }
 }
 
-void (*translate_command(char* command, int* argc))(int, ...) {
+struct mud_command* translate_command(char* command) {
   printf("translate: %s\n", command);
   struct nlist* cmd = lookup(g_commands, command);  
   if (cmd == NULL) {
     printf("translate: command not found\n");
     return NULL;
   }
-  return cmd->defn;
+  return &cmd->defn; 
+}
+
+ssize_t send_message(char* msg) {
+  char output[MAXDATASIZE];
+  sprintf(output, "%s\n\r", msg);
+  return send(cdata.fd, output, strlen(output), 0);
 }

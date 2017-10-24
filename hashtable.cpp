@@ -8,8 +8,7 @@ unsigned hash(char* s) {
   unsigned hashval;
   for (hashval = 0; *s != '\0'; s++) {
     hashval = *s + 31 * hashval;
-  }
-  
+  }  
   return hashval % HASHSIZE;
 }
 
@@ -24,7 +23,7 @@ struct nlist* lookup(struct nlist** hashtab, char* s) {
   return NULL;
 }
 
-struct nlist* install(struct nlist** hashtab, char* name, void (*defn)(int, ...)) {
+struct nlist* install(struct nlist** hashtab, char* name, struct mud_command defn) {
   struct nlist* np;
   unsigned hashval;
   if ((np = lookup(hashtab, name)) == NULL) {
@@ -36,11 +35,9 @@ struct nlist* install(struct nlist** hashtab, char* name, void (*defn)(int, ...)
     np->next = hashtab[hashval];
     hashtab[hashval] = np;
   } else {
-    free((void*)np->defn);
+    free((void*)&np->defn);
   }
-  if ((np->defn = defn) == NULL) {
-    return NULL;
-  }
+  np->defn = defn;
   return np;
 }
 

@@ -1,10 +1,16 @@
 #ifndef HASHTABLE_H_
 #define HASHTABLE_H_
 
+struct mud_command {
+  int argc;
+  char** argv;
+  void(*func)(int, char**);
+};
+
 struct nlist {
   struct nlist* next;
   char* name;
-  void (*defn)(int, ...);
+  struct mud_command defn;
 };
 
 #define HASHSIZE 101
@@ -14,6 +20,6 @@ unsigned hash(char*);
 struct nlist* lookup(struct nlist**, char*);
 
 char* strdup(char*);
-struct nlist* install(struct nlist**, char*, void (*)(int, ...));
+struct nlist* install(struct nlist**, char*, struct mud_command);
 
 #endif
