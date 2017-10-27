@@ -11,6 +11,7 @@ extern struct client_data cdata;
 char* sayArgs[1];
 
 void quit(int, char**) {
+  printf("User %s quit.\n", cdata.name);
   shutdown(cdata.fd, SHUT_RDWR);
   
 }
@@ -19,12 +20,10 @@ void say(int argc, char** argv) {
   int i;
   size_t size = 0;
   char* msg = argv[0];
-  printf("size: %lu\n", size);
-  for (int i = 0; i < argc; i++) {
-  
-  }    
-  
-  printf("user said %s\n", msg);
+  char* name = (char*)"You";
+  char* outmsg;
+  sprintf(outmsg, "%s said: \"%s\".", name, msg);
+  send_message(outmsg);
 }
 
 void install_commands(struct nlist** commands) {

@@ -1,6 +1,8 @@
 #include "hashtable.h"
 #include "commands.h"
 #include "mud_data.h"
+#include "telnet.h"
+#include "prompts.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -37,7 +39,6 @@ void *get_in_addr(struct sockaddr *sa) {
   return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-ssize_t send_message(char*);
 void client_handler(int);
 void command_parser(char*);
 struct mud_command* translate_command(char*);
@@ -158,18 +159,22 @@ int main(int argc, char* argv[]) {
 void client_handler(int fd) {
   int numbytes;
   char buf[MAXDATASIZE];
-  char command[MAXDATASIZE] = "";
+  char command[MAXDATASIZE];
   char msg[MAXDATASIZE];
+  //bool (*prompt_func)(char*) = prompt_get_name;
+  void (*prompt_func)(void*) = (func_ptr)prompt_enter_name;
   
   cdata.fd = fd;
   
+  memset(buf, 0, sizeof(buf));
+  memset(command, 0, sizeof(command));
   memset(g_commands, 0, sizeof g_commands);
   install_commands(g_commands);
 
   
   struct mud_data* md = (struct mud_data*)g_mud_data;
   
-  sprintf(msg, "Hello, are you %s? Enter your name! ", md->name);
+  sprintf(msg, "Hello, please enter your name! ");
   
   if (send_message(msg) == -1) {
     perror("send");
@@ -177,27 +182,42 @@ void client_handler(int fd) {
   
   while ((numbytes = recv(fd, buf, MAXDATASIZE-1, 0)) != 0) {  
     if (numbytes == -1) {
-      perror("recv");
+      printf("recv error\n");
       exit(1);
     }
-  
+    
+    // intercept telnet protocol commands
+    for (int i = 0; i < numbytes; i++) {
+      buf[i] = telnet_handle_char((unsigned char)buf[i]);
+    }
+    
     buf[numbytes] = '\0';
     if (buf[numbytes-1] == '\n' || buf[numbytes-1] == '\r' || (numbytes > 1 && buf[numbytes-1] == '\n' && buf[numbytes-2] == '\r')) {
       char *src, *dst;
+      if (strlen(command) == 0) {
+        strcpy(command, buf);
+      }
       dst = command;
       for (src = dst = command; *src != '\0'; src++) {
         *dst = *src;
         if (*dst >= 32 && *dst != 127) {
           dst++;
         }
-        if (*src == '\b' && (unsigned long)dst > (unsigned long)command) {
+        if ((*src == '\b' || *src == 255) && (unsigned long)dst > (unsigned long)command) {
           dst--;
         }
       }
       *dst = '\0';
-      command_parser(command);
-      memset(command, 0, sizeof command);      
+      if (false) {//prompt_func != NULL) {
+        prompt_func = ((prompt_type)prompt_func)(command);
+      } else {        
+        printf("command: %s\n", command);
+        command_parser(command);
+      }
+      memset(command, 0, sizeof(command));            
+//      memset(buf, 0, sizeof(buf));
     } else {
+      printf("concat: %s%s\n", command, buf);
       sprintf(command, "%s%s", command, buf);
     }
   }
@@ -233,9 +253,10 @@ void command_parser(char* command) {
     
     if (mc != NULL && arg_count >= mc->argc) {
       mc->func(mc->argc, mc->argv);
+      printf("mc: %x\n", (unsigned long)mc);
       if (mc->argc == -1) {
         break;
-      }
+      }      
       mc = NULL;
       arg_count = 0;
     }
@@ -244,12 +265,14 @@ void command_parser(char* command) {
 }
 
 struct mud_command* translate_command(char* command) {
-  printf("translate: %s\n", command);
+  printf("translate: %s\n", command);  
   struct nlist* cmd = lookup(g_commands, command);  
+  printf("after lookup\n");
   if (cmd == NULL) {
     printf("translate: command not found\n");
     return NULL;
   }
+  printf("%x\n", (unsigned long)&cmd->defn);
   return &cmd->defn; 
 }
 

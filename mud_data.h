@@ -9,6 +9,7 @@ struct mud_data {
 
 struct client_data {
   int fd;
+  char name[20];
 };
 
 #endif

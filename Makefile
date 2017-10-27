@@ -1,2 +1,2 @@
-mud: main.cpp hashtable.cpp commands.cpp telnet.c
-	gcc -o mud main.cpp hashtable.cpp commands.cpp telnet.c -I.
+mud: main.cpp hashtable.cpp commands.cpp telnet.cpp prompts.cpp
+	gcc -o mud main.cpp hashtable.cpp commands.cpp telnet.cpp prompts.cpp -I.

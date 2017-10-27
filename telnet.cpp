@@ -3,6 +3,7 @@
 
 #include <string.h>
 #include <sys/socket.h>
+#include <stdio.h>
 
 struct telnet_info telnet_data;
 
@@ -10,13 +11,14 @@ void telnet_init(int sockfd) {
   memset(&telnet_data, 0, sizeof(telnet_data));
 }
 
+// this currently doesn't do much more than ignore telnet commands
 unsigned char telnet_handle_char(unsigned char c) {
   unsigned char sendbuff[10];
   if (c == TELNET_IAC) {
 //    printf("%x ", c);
     telnet_data.expect_command = true;
   } else if (telnet_data.expect_command || telnet_data.expect_option || telnet_data.expect_suboption) {
-//    printf("%x ", recvbuff[i]);
+//    printf("%x ", c);
     if (telnet_data.expect_command) {
       telnet_data.command = c;
       telnet_data.expect_command = false;
@@ -32,7 +34,7 @@ unsigned char telnet_handle_char(unsigned char c) {
       sendbuff[0] = TELNET_IAC;
       sendbuff[1] = TELNET_WONT;
       sendbuff[2] = TELNET_TELOPT_TTYPE;
-      send(telnet_data.sockfd, sendbuff, strlen(sendbuff), 0);
+      send(telnet_data.sockfd, sendbuff, strlen((char*)sendbuff), 0);
       memset(sendbuff, 0, sizeof(sendbuff));
       break;                        
     case TELNET_SB:
@@ -56,7 +58,7 @@ unsigned char telnet_handle_char(unsigned char c) {
         sendbuff[0] = TELNET_IAC;
         sendbuff[1] = TELNET_WONT;
         sendbuff[2] = telnet_data.option;
-        send(telnet_data.sockfd, sendbuff, strlen(sendbuff), 0);
+        send(telnet_data.sockfd, sendbuff, strlen((char*)sendbuff), 0);
         memset(sendbuff, 0, sizeof(sendbuff));                                                    
       }
     }
