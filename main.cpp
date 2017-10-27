@@ -60,9 +60,6 @@ int main(int argc, char* argv[]) {
   }
   
   struct mud_data md;
-
-  strcpy(md.name, "Jon");
-  md.id = 12345;
  
   g_mud_data = mmap(NULL, sizeof md, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   memcpy(g_mud_data, &md, sizeof md);
@@ -208,7 +205,7 @@ void client_handler(int fd) {
         }
       }
       *dst = '\0';
-      if (false) {//prompt_func != NULL) {
+      if (prompt_func != NULL) {
         prompt_func = ((prompt_type)prompt_func)(command);
       } else {        
         printf("command: %s\n", command);
@@ -217,7 +214,6 @@ void client_handler(int fd) {
       memset(command, 0, sizeof(command));            
 //      memset(buf, 0, sizeof(buf));
     } else {
-      printf("concat: %s%s\n", command, buf);
       sprintf(command, "%s%s", command, buf);
     }
   }
@@ -253,7 +249,6 @@ void command_parser(char* command) {
     
     if (mc != NULL && arg_count >= mc->argc) {
       mc->func(mc->argc, mc->argv);
-      printf("mc: %x\n", (unsigned long)mc);
       if (mc->argc == -1) {
         break;
       }      
@@ -267,12 +262,10 @@ void command_parser(char* command) {
 struct mud_command* translate_command(char* command) {
   printf("translate: %s\n", command);  
   struct nlist* cmd = lookup(g_commands, command);  
-  printf("after lookup\n");
   if (cmd == NULL) {
     printf("translate: command not found\n");
     return NULL;
   }
-  printf("%x\n", (unsigned long)&cmd->defn);
   return &cmd->defn; 
 }
 

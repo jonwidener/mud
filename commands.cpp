@@ -21,7 +21,7 @@ void say(int argc, char** argv) {
   size_t size = 0;
   char* msg = argv[0];
   char* name = (char*)"You";
-  char* outmsg;
+  char outmsg[100];
   sprintf(outmsg, "%s said: \"%s\".", name, msg);
   send_message(outmsg);
 }

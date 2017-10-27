@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #define MAXDATASIZE 100
 
@@ -67,9 +68,30 @@ func_ptr prompt_verify_name(char* yes_no) {
 
 func_ptr prompt_enter_password(char* password) {
   char msg[MAXDATASIZE];
-  sprintf(msg, "Thank you for a password.");
+  char pw[MAXPASSWORDSIZE];  
+  char filename[100];
+  char temp;
+  memset(pw, 0, sizeof(pw));
+  sprintf(filename, "characters/%s.pw", cdata.name);
+  FILE* fd = fopen(filename, "r");
+  for (int i = 0; i < MAXPASSWORDSIZE; i++) {
+    temp = fgetc(fd);
+    if (temp == EOF) {
+      break;
+    }
+    pw[i] = temp;
+  }
+  fclose(fd);
+  if (strcmp(password, pw) == 0) {
+    sprintf(msg, "Welcome back!\n");
+    send_message(msg);
+    return NULL;
+  }
+  
+  sprintf(msg, "Incorrect password. Bye bye.\n");
   send_message(msg);
-  return NULL;
+  shutdown(cdata.fd, SHUT_RDWR);  
+  return NULL;  
 }
 
 func_ptr prompt_create_password(char* password) {
@@ -79,11 +101,8 @@ func_ptr prompt_create_password(char* password) {
   
   FILE* fd = fopen(filename, "w");
   for (int i = 0; i < strlen(password); i++) {
-    printf("%x ", password[i]);
     fputc(password[i], fd);
   }
-  printf("\n");
-
   
 //  fwrite(password, sizeof(char), strlen(password), fd);
   fclose(fd);
@@ -107,11 +126,16 @@ func_ptr prompt_verify_password(char* password) {
       break;
     }
     pw[i] = temp;
-    printf("%x ", pw[i]);
   }
   fclose(fd);
-  printf("\nentered password: %s\nstored password: %s\nstrcmp: %d\n", password, pw, strcmp(password, pw));
   if (strcmp(password, pw) == 0) {
+    sprintf(filename, "characters/%s", cdata.name);
+    FILE* fd = fopen(filename, "w");    
+    if (fd != NULL) {
+      fwrite("placeholder", sizeof(char), strlen("placeholder"), fd);
+    }  
+    fclose(fd);
+  
     sprintf(msg, "Welcome to the game!\n");
     send_message(msg);
     return NULL;
