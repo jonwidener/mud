@@ -1,7 +1,0 @@
-#include "commands.h"
-
-void test();
-
-void install_commands(struct nlist** commands) {
-  install(commands, (char*)"quit", test);
-}
